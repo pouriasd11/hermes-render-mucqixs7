@@ -37,3 +37,14 @@ npm-debug.log*
 
 # Local upstream clone used during template development.
 .hermes-upstream/
+
+# Motion-compare: keep source + rendered outputs, not toolchains/binaries.
+motion-compare/tools/node_modules/
+motion-compare/**/node_modules/
+motion-compare/.venv/
+motion-compare/manim-env/
+motion-compare/sysroot/
+motion-compare/manim/media/
+motion-compare/revideo/output/
+motion-compare/bin/
+motion-compare/outputs/*.wav
