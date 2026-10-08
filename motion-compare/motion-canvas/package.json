@@ -12,7 +12,8 @@
     "@motion-canvas/core": "^3.17.2",
     "@motion-canvas/ffmpeg": "^1.1.0",
     "@motion-canvas/ui": "^3.17.2",
-    "@motion-canvas/vite-plugin": "^3.17.2"
+    "@motion-canvas/vite-plugin": "^3.17.2",
+    "playwright": "^1.64.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

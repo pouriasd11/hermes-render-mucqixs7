@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #101418; overflow: hidden; font-family: sans-serif; }
+      #lottie { position: absolute; inset: 0; }
+      .overlay { position: absolute; left: 0; right: 0; top: 40px; text-align: center; pointer-events: none; }
+      .overlay h1 { margin: 0; font-size: 64px; color: #fff; font-weight: 800; letter-spacing: 2px; }
+      .overlay p { margin: 6px 0 0; font-size: 24px; color: #9fb3c8; }
+    </style>
+    <script src="node_modules/lottie-web/build/player/lottie.min.js"></script>
+  </head>
+  <body>
+    <div id="lottie"></div>
+    <div class="overlay"><h1>Lottie</h1><p>After Effects JSON played frame-by-frame</p></div>
+    <script>
+      // Hand-authored Lottie. Notes learned while making this sample:
+      //  - lottie-web's SVG renderer does not build geometry in the headless shell -> use "canvas".
+      //  - keyframed *rotation* works; keyframed scale did not render here, so we rotate only.
+      const E = { i: { x: [0.5], y: [0.5] }, o: { x: [0.5], y: [0.5] } };
+      const rot = (from, to) => ({ a: 1, k: [ Object.assign({ t: 0, s: [from] }, E), { t: 150, s: [to] } ] });
+      const grp = (shape, paint, tr) => ({ ty: "gr", nm: "g", it: [ shape, paint, tr ].filter(Boolean) });
+      const tr = { ty: "tr", p: { a: 0, k: [0, 0] }, a: { a: 0, k: [0, 0] }, s: { a: 0, k: [100, 100] }, r: { a: 0, k: 0 }, o: { a: 0, k: 100 }, sk: { a: 0, k: 0 }, sa: { a: 0, k: 0 } };
+
+      const animData = {
+        v: "5.7.4", fr: 30, ip: 0, op: 150, w: 1280, h: 720, nm: "lottie-sample", ddd: 0,
+        assets: [],
+        layers: [
+          { ddd: 0, ind: 1, ty: 4, nm: "ring", sr: 1,
+            ks: { o: { a: 0, k: 100 }, r: rot(0, -360), p: { a: 0, k: [640, 400, 0] }, a: { a: 0, k: [0, 0, 0] }, s: { a: 0, k: [130, 130, 100] } },
+            ao: 0,
+            shapes: [ grp(
+              { d: 1, ty: "el", s: { a: 0, k: [340, 340] }, p: { a: 0, k: [0, 0] }, nm: "e" },
+              { ty: "st", c: { a: 0, k: [0.3, 0.78, 0.94, 1] }, o: { a: 0, k: 100 }, w: { a: 0, k: 18 }, lc: 2, lj: 2, nm: "s" },
+              tr ) ],
+            ip: 0, op: 150, st: 0, bm: 0 },
+          { ddd: 0, ind: 2, ty: 4, nm: "ring2", sr: 1,
+            ks: { o: { a: 0, k: 100 }, r: rot(0, 420), p: { a: 0, k: [640, 400, 0] }, a: { a: 0, k: [0, 0, 0] }, s: { a: 0, k: [80, 80, 100] } },
+            ao: 0,
+            shapes: [ grp(
+              { d: 1, ty: "rc", s: { a: 0, k: [240, 240] }, p: { a: 0, k: [0, 0] }, r: { a: 0, k: 24 }, nm: "r1" },
+              { ty: "st", c: { a: 0, k: [1, 0.82, 0.4, 1] }, o: { a: 0, k: 100 }, w: { a: 0, k: 12 }, lc: 2, lj: 2, nm: "s2" },
+              tr ) ],
+            ip: 0, op: 150, st: 0, bm: 0 },
+          { ddd: 0, ind: 3, ty: 4, nm: "dot", sr: 1,
+            ks: { o: { a: 0, k: 100 }, r: rot(0, -540), p: { a: 0, k: [640, 400, 0] }, a: { a: 0, k: [0, 0, 0] }, s: { a: 0, k: [100, 100, 100] } },
+            ao: 0,
+            shapes: [ grp(
+              { d: 1, ty: "el", s: { a: 0, k: [90, 90] }, p: { a: 0, k: [230, 0] }, nm: "e2" },
+              { ty: "fl", c: { a: 0, k: [0.95, 0.35, 0.55, 1] }, o: { a: 0, k: 100 }, r: 1, nm: "f2" },
+              tr ) ],
+            ip: 0, op: 150, st: 0, bm: 0 },
+        ],
+      };
+
+      const anim = lottie.loadAnimation({
+        container: document.getElementById("lottie"),
+        renderer: "canvas", loop: false, autoplay: false, animationData: animData,
+      });
+      window.__anim = anim;
+      window.renderFrame = (i) => { anim.goToAndStop(i, true); };
+      window.__ready = true;
+    </script>
+  </body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #14101f; overflow: hidden;
+        font-family: system-ui, sans-serif; color: #fff; }
+      #stage { position: absolute; inset: 0; display: grid; place-items: center; }
+      .title { font-size: 96px; font-weight: 800;
+        background: linear-gradient(90deg,#8affc1,#54c1ff); -webkit-background-clip: text;
+        background-clip: text; color: transparent; }
+      .sub { font-size: 30px; color: #cfd6ff; margin-top: 10px; text-align: center; }
+      .row { display: flex; gap: 26px; margin-top: 46px; }
+      .box { width: 90px; height: 90px; border-radius: 18px; }
+      .b1 { background: #8affc1; } .b2 { background: #54c1ff; }
+      .b3 { background: #ff8ac1; } .b4 { background: #ffd166; }
+    </style>
+    <script src="node_modules/gsap/dist/gsap.min.js"></script>
+  </head>
+  <body>
+    <div id="stage">
+      <div style="text-align:center">
+        <div class="title">GSAP</div>
+        <div class="sub">The web animation platform &mdash; driven frame-by-frame</div>
+        <div class="row" style="justify-content:center">
+          <div class="box b1"></div><div class="box b2"></div>
+          <div class="box b3"></div><div class="box b4"></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Deterministic GSAP timeline. We seek the timeline to a given time per frame.
+      const tl = gsap.timeline({ paused: true });
+
+      tl.from(".title", { y: 90, opacity: 0, duration: 1, ease: "power3.out" })
+        .from(".sub", { opacity: 0, y: 30, duration: 0.8 }, "-=0.4")
+        .from(".box", {
+          scale: 0, rotation: -120, opacity: 0, duration: 0.8,
+          stagger: 0.12, ease: "back.out(1.7)",
+        }, "-=0.3")
+        .to(".box", { y: -60, duration: 0.6, stagger: { each: 0.1, yoyo: true, repeat: 1 } }, "+=0.2")
+        .to(".title", { letterSpacing: "8px", duration: 1.0 }, "-=0.4");
+
+      // Pad the timeline so the full duration is covered.
+      tl.to({}, { duration: 5 }, 0);
+      tl.time(0);
+
+      window.__ready = true;
+      window.renderFrame = (i) => {
+        tl.time(i / 30); // fps = 30
+      };
+    </script>
+  </body>
+</html>
