@@ -15,7 +15,8 @@ echo "== 2/8 Motion Canvas (custom headless harness) =="
 
 echo "== 3/8 Revideo =="
 ( cd "$MC/revideo" && rm -rf node_modules/.vite output && \
-  OUT_FILE=03-revideo.mp4 OUT_DIR="$OUT" node render.cjs )
+  OUT_FILE=03-revideo.mp4 OUT_DIR=output node render.cjs && \
+  cp output/03-revideo.mp4 "$OUT/03-revideo.mp4" )
 
 echo "== 4/8 Manim (conda env) =="
 ( cd "$MC/manim" && rm -rf media && \

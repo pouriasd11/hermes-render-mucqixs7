@@ -1,7 +1,7 @@
 const { renderVideo } = require("@revideo/renderer");
 
 const outFile = process.env.OUT_FILE || "03-revideo.mp4";
-const outDir = process.env.OUT_DIR || "/workspace/motion-compare/outputs";
+const outDir = process.env.OUT_DIR || "./output";
 
 renderVideo({
   projectFile: process.env.PROJECT_FILE || "./src/project.ts",
