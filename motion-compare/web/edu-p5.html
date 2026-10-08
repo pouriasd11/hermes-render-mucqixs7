@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>html,body{margin:0;background:#0B1020;overflow:hidden}canvas{display:block}</style>
+    <script src="node_modules/p5/lib/p5.min.js"></script>
+  </head>
+  <body>
+    <script>
+      // Identical educational scenario (Pythagorean theorem) - p5.js.
+      const W = 1280, H = 720;
+      const BG = '#0B1020', COL_A = '#4CC9F0', COL_B = '#F72585', COL_C = '#06D6A0';
+      const TRI = '#FFD166', TXT = '#E6EDF3', MUTED = '#9FB3C8';
+
+      const A = { x: 560, y: 350 }, B = { x: 720, y: 470 }, C = { x: 560, y: 470 };
+      const SQ_A = [ {x:440,y:350},{x:560,y:350},{x:560,y:470},{x:440,y:470} ];
+      const SQ_B = [ {x:560,y:470},{x:720,y:470},{x:720,y:630},{x:560,y:630} ];
+      const SQ_C = [ {x:560,y:350},{x:720,y:470},{x:840,y:310},{x:680,y:190} ];
+
+      const clamp01 = (x) => Math.max(0, Math.min(1, x));
+      const seg = (f, a, b) => clamp01((f - a) / (b - a));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      let frame = 0;
+
+      function poly(pts, fillCol, strokeCol, alpha, k) {
+        const cx = pts.reduce((s,p)=>s+p.x,0)/pts.length;
+        const cy = pts.reduce((s,p)=>s+p.y,0)/pts.length;
+        push(); translate(cx, cy); scale(k); translate(-cx, -cy);
+        const c = color(fillCol); c.setAlpha(alpha*0.22*255);
+        fill(c);
+        const s = color(strokeCol); s.setAlpha(alpha*255);
+        stroke(s); strokeWeight(3);
+        beginShape(); pts.forEach(p=>vertex(p.x,p.y)); endShape(CLOSE);
+        pop();
+      }
+
+      function partialLine(p, q, t, w, col, alpha) {
+        const c = color(col); c.setAlpha(alpha*255);
+        stroke(c); strokeWeight(w); strokeCap(ROUND);
+        line(p.x, p.y, lerp(p.x,q.x,t), lerp(p.y,q.y,t));
+      }
+
+      function label(txt, x, y, size, col, alpha) {
+        if (alpha <= 0.01) return;
+        const c = color(col); c.setAlpha(alpha*255);
+        fill(c); noStroke(); textAlign(CENTER, CENTER); textSize(size); textStyle(BOLD);
+        text(txt, x, y);
+      }
+
+      function setup(){ createCanvas(W,H); noLoop(); window.__ready = true; }
+
+      function draw(){
+        background(BG);
+        const f = frame;
+
+        // squares
+        poly(SQ_A, COL_A, COL_A, seg(f,129,159), lerp(0.7,1,seg(f,129,159)));
+        poly(SQ_B, COL_B, COL_B, seg(f,135,165), lerp(0.7,1,seg(f,135,165)));
+        const pulse = 1 + 0.06*Math.sin(Math.PI*seg(f,225,249));
+        poly(SQ_C, COL_C, COL_C, seg(f,141,174), lerp(0.7,1,seg(f,141,174))*pulse);
+
+        // triangle edges (draw-on, staggered)
+        partialLine(C, A, seg(f,54,84), 5, TRI, 1);
+        partialLine(C, B, seg(f,63,93), 5, TRI, 1);
+        partialLine(A, B, seg(f,72,102), 5, TRI, 1);
+
+        // right-angle marker
+        const raAlpha = seg(f,102,114);
+        if (raAlpha > 0.01) {
+          const c = color(TRI); c.setAlpha(raAlpha*255);
+          stroke(c); strokeWeight(3); noFill();
+          beginShape(); vertex(560,470); vertex(560,446); vertex(584,446); vertex(584,470); endShape();
+        }
+
+        // side labels
+        const labA = seg(f,114,129);
+        label('a', 578, 412, 30, COL_A, labA);
+        label('b', 646, 450, 30, COL_B, labA);
+        label('c', 618, 406, 30, COL_C, labA);
+
+        // area labels
+        const area = seg(f,174,195);
+        label('a\u00b2', 500, 412, 34, COL_A, area);
+        label('b\u00b2', 640, 552, 34, COL_B, area);
+        label('c\u00b2', 700, 332, 34, COL_C, area);
+
+        // equation
+        const eq = seg(f,195,225);
+        const eqY = lerp(712, 692, eq);
+        label('a\u00b2', 566, eqY, 52, COL_A, eq);
+        label('+',      616, eqY, 52, TXT,   eq);
+        label('b\u00b2', 666, eqY, 52, COL_B, eq);
+        label('=',      716, eqY, 52, TXT,   eq);
+        label('c\u00b2', 766, eqY, 52, COL_C, eq);
+
+        // title + subtitle
+        const titleT = seg(f,0,36);
+        label('Pythagorean Theorem', 640, lerp(34,60,titleT), 58, TXT, titleT);
+        label('A right triangle with legs a, b and hypotenuse c', 640, 110, 24, MUTED, seg(f,36,54));
+      }
+
+      window.renderFrame = (i) => { frame = i; redraw(); };
+    </script>
+  </body>
+</html>

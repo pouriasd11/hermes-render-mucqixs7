@@ -72,3 +72,8 @@ bash motion-compare/render-all.sh
 - **Lottie:** رندرر SVG در این کروم هندسه نمی‌سازد؛ رندرر `canvas` استفاده شد. همچنین کی‌فریم `scale` رندر نشد، پس نمونه فقط با کی‌فریم `rotation` انیمیت می‌شود.
 - **Revideo:** چند نکته: `outFile` باید فقط نام فایل باشد (نه مسیر) و پوشه با `outDir` داده شود؛ نام صحنه باید صریح به `makeScene2D(name, fn)` داده شود (ترنسفورم `?scene` در مسیر رندر اعمال نمی‌شود).
 - **Motion Canvas:** CLI رندر رسمی ندارد؛ `motion-canvas/render-entry.ts` با API عمومی `Renderer` و یک `Exporter` سفارشی، فریم‌ها را از طریق `window.__capture` به هارنس Playwright می‌دهد.
+
+## نمونهٔ آموزشی یکسان (قضیهٔ فیثاغورس)
+
+یک سناریوی آموزشی یکسان در هر ۸ موتور پیاده و رندر شده است؛ خروجی‌ها در `edu/` و مقایسهٔ کامل + برنده در [`edu/README.md`](./edu/README.md).
+اجرای مجدد: `bash motion-compare/render-edu.sh`

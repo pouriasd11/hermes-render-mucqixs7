@@ -10,6 +10,7 @@ import path from "node:path";
 
 const OUT = process.env.OUT || "/workspace/motion-compare/outputs/02-motion-canvas.mp4";
 const FPS = 30;
+const ENTRY = process.env.ENTRY || "render.html";
 const framesDir = "/tmp/mc-motion-canvas-frames";
 fs.rmSync(framesDir, { recursive: true, force: true });
 fs.mkdirSync(framesDir, { recursive: true });
@@ -40,7 +41,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function waitForServer(p) {
   for (let i = 0; i < 120; i++) {
     try {
-      const res = await fetch(`http://127.0.0.1:${p}/render.html`);
+      const res = await fetch(`http://127.0.0.1:${p}/${ENTRY}`);
       if (res.ok) return;
     } catch {}
     await wait(500);
@@ -90,7 +91,7 @@ try {
     count++;
   });
 
-  await page.goto(`http://127.0.0.1:${port}/render.html`, { waitUntil: "load" });
+  await page.goto(`http://127.0.0.1:${port}/${ENTRY}`, { waitUntil: "load" });
   await page.waitForFunction("window.__done === true", { timeout: 180000 });
   const err = await page.evaluate("window.__error");
   if (err) throw new Error("render failed: " + err);
