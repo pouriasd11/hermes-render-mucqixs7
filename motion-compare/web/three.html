@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>html,body{margin:0;background:#05070d;overflow:hidden}canvas{display:block}</style>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from "./node_modules/three/build/three.module.js";
+
+      const W = 1280, H = 720, FPS = 30, TOTAL = 150;
+      const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(W, H);
+      renderer.setClearColor(0x05070d, 1);
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 100);
+      camera.position.set(0, 1.5, 7);
+      camera.lookAt(0, 0, 0);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const d1 = new THREE.DirectionalLight(0x66ccff, 2.0); d1.position.set(5, 6, 5); scene.add(d1);
+      const d2 = new THREE.DirectionalLight(0xff66aa, 1.6); d2.position.set(-6, -3, -4); scene.add(d2);
+
+      const torusKnot = new THREE.Mesh(
+        new THREE.TorusKnotGeometry(1.1, 0.34, 160, 24),
+        new THREE.MeshStandardMaterial({ color: 0x4cc9f0, metalness: 0.6, roughness: 0.25 }),
+      );
+      scene.add(torusKnot);
+
+      const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 0.9, 0.9),
+        new THREE.MeshStandardMaterial({ color: 0xffd166, metalness: 0.4, roughness: 0.3 }),
+      );
+      cube.position.set(2.6, -1.2, 0);
+      scene.add(cube);
+
+      const ico = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.7, 0),
+        new THREE.MeshStandardMaterial({ color: 0xff5d8f, flatShading: true }),
+      );
+      ico.position.set(-2.6, 1.4, -1);
+      scene.add(ico);
+
+      const grid = new THREE.GridHelper(20, 20, 0x223355, 0x16223a);
+      grid.position.y = -2.2;
+      scene.add(grid);
+
+      window.__ready = true;
+      window.renderFrame = (i) => {
+        const t = i / TOTAL;
+        torusKnot.rotation.x = t * Math.PI * 3;
+        torusKnot.rotation.y = t * Math.PI * 4;
+        cube.rotation.x = t * Math.PI * 5;
+        cube.rotation.y = t * Math.PI * 3;
+        cube.position.y = -1.2 + 1.6 * Math.abs(Math.sin(t * Math.PI * 3));
+        ico.rotation.y = t * Math.PI * 6;
+        ico.scale.setScalar(0.8 + 0.5 * Math.sin(t * Math.PI * 4));
+        camera.position.z = 7 + 1.6 * Math.sin(t * Math.PI * 2);
+        camera.lookAt(0, 0, 0);
+        renderer.render(scene, camera);
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { margin: 0; padding: 0; background: #0f1b2a; overflow: hidden; }
+      canvas { display: block; }
+    </style>
+    <script src="node_modules/p5/lib/p5.min.js"></script>
+  </head>
+  <body>
+    <script>
+      // Deterministic p5.js sample. window.renderFrame(i, total) draws frame i.
+      const W = 1280, H = 720, FPS = 30;
+      let frame = 0, totalFrames = 150;
+
+      function setup() {
+        createCanvas(W, H);
+        noLoop();
+        window.__ready = true;
+      }
+
+      function draw() {
+        const t = frame / totalFrames;          // 0..1
+        const tau = Math.PI * 2;
+        background(15, 27, 42);
+
+        // Grid
+        stroke(40, 70, 100);
+        strokeWeight(1);
+        for (let x = 0; x <= W; x += 80) line(x, 0, x, H);
+        for (let y = 0; y <= H; y += 80) line(0, y, W, y);
+
+        // Orbiting circles
+        noStroke();
+        const cx = W / 2, cy = H / 2;
+        for (let k = 0; k < 18; k++) {
+          const a = tau * (t * 1.0 + k / 18);
+          const r = 120 + 90 * Math.sin(tau * t + k * 0.5);
+          const x = cx + Math.cos(a) * r;
+          const y = cy + Math.sin(a) * r * 0.6;
+          const s = 10 + 12 * (0.5 + 0.5 * Math.sin(tau * (t + k / 18)));
+          fill(120 + 100 * Math.sin(t + k), 180, 255, 220);
+          ellipse(x, y, s, s);
+        }
+
+        // Rotating square
+        push();
+        translate(cx, cy);
+        rotate(t * tau);
+        noFill();
+        stroke(255, 209, 102, 230);
+        strokeWeight(4);
+        rectMode(CENTER);
+        rect(0, 0, 220, 220);
+        pop();
+
+        // Title
+        noStroke();
+        fill(240);
+        textAlign(CENTER, CENTER);
+        textSize(74);
+        textStyle(BOLD);
+        text("p5.js", cx, H - 150);
+        textSize(26);
+        fill(180);
+        text("Creative coding -> video", cx, H - 95);
+        fill(150);
+        textSize(18);
+        text("frame " + frame + " / " + totalFrames, cx, H - 45);
+      }
+
+      window.renderFrame = (i, total) => {
+        frame = i;
+        totalFrames = total;
+        redraw();
+      };
+    </script>
+  </body>
+</html>
