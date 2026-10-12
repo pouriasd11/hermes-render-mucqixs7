@@ -704,11 +704,10 @@ function scene10(c, tau, i) {
     fa(c, cd.note, cd.x, y + 168, { size: 26, color: alpha(INK, .75), alpha: clamp((p - .4) * 2, 0, 1) });
   }
   const tips = ['خواب کافی', 'تحرک روزانه', 'تغذیه‌ی درست'];
-  fa(c, 'برای سالم ماندنِ همین کارکن‌ها', W * .40, CY + 205, { size: 28, color: alpha(INK, .6), alpha: q([.54, .64]), align: 'right' });
   tips.forEach((t, k) => {
-    const p = q([.58 + k * .05, .68 + k * .05]);
+    const p = q([.56 + k * .05, .66 + k * .05]);
     if (p <= 0) return;
-    const y = CY + 265 + k * 60;
+    const y = CY + 195 + k * 58;
     fa(c, t, W * .40, y, { size: 34, color: alpha(INK, .9), alpha: p, align: 'right' });
     tick(c, W * .22, y, 20, clamp((p - .4) * 3, 0, 1));
   });
