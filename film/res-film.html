@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<meta charset="utf-8">
+<title>دستگاه رتیکولو اندوتلیال — انیمیشن آموزشی</title>
+<style>
+  @font-face{font-family:'Vazir';src:url('fonts/Vazirmatn-Regular.ttf') format('truetype');font-display:block}
+  @font-face{font-family:'VazirM';src:url('fonts/Vazirmatn-Medium.ttf') format('truetype');font-display:block}
+  @font-face{font-family:'VazirB';src:url('fonts/Vazirmatn-Bold.ttf') format('truetype');font-display:block}
+  @font-face{font-family:'Lalezar';src:url('fonts/Lalezar-Regular.ttf') format('truetype');font-display:block}
+  html,body{margin:0;background:#242321;display:grid;place-items:center;min-height:100vh}
+  canvas{max-width:100vw;max-height:100vh;object-fit:contain;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+</style>
+<canvas id="c"></canvas>
+<script src="./durations.js"></script>
+<script src="./core.js"></script>
+<script src="./studio.js"></script>
+<script>
+'use strict';
+// ============================================================================
+// دستگاه رتیکولو اندوتلیال — a hand-drawn explainer film.
+// Narration: Google Gemini TTS, voice "Aoede" (Persian, colloquial).
+// Everything is drawn procedurally: paper, brush strokes, watercolour washes.
+// ============================================================================
+document.fonts.load('40px Vazir'); document.fonts.load('40px VazirM');
+document.fonts.load('40px VazirB'); document.fonts.load('40px Lalezar');
+
+const PAPER = '#f7f2e7';
+const INK = '#22303f';
+const RED = '#bf4a34';
+const BLUE = '#3a72a8';
+const GOLD = '#d99b2b';
+const GREEN = '#4f8f63';
+const VIOLET = '#7d5aa0';
+const ROSE = '#c9738a';
+
+const FILMPAL = makePalette({
+  paper: PAPER, ink: INK, shade: '#5a6a7d', light: '#fdfaf2',
+  night: '#1b2432', chalk: '#f3ebd9', chalkDim: '#a9b8c9',
+  blush: '#e6a08c', guide: '#a8b4c2',
+  fills: ['#e9cda6', '#f0dcc8', '#d7e3ee', '#cfe0d2'],
+  accents: [RED, GOLD, BLUE, GREEN, VIOLET],
+  finish: 'ink'
+}, 'paperInk');
+
+// ---------- Persian lettering ----------
+const FONT = { body: 'Vazir', med: 'VazirM', bold: 'VazirB', disp: 'Lalezar' };
+function fa(c, text, x, y, o = {}) {
+  const { size = 34, font = FONT.med, color = PAL.ink, align = 'center', baseline = 'middle', alpha: al = 1, lift = 0 } = o;
+  c.save(); c.direction = 'rtl'; c.textAlign = align; c.textBaseline = baseline;
+  c.font = `${size}px ${font}`; c.fillStyle = color; c.globalAlpha = al;
+  if (lift) { c.fillStyle = alpha(color, .22); c.fillText(text, x + lift * .7, y + lift); c.fillStyle = color; }
+  c.fillText(text, x, y); c.restore();
+}
+function faShadow(c, text, x, y, o = {}) { return fa(c, text, x, y, { ...o, lift: o.lift ?? 2.5 }); }
+// a hand-drawn underline under a label
+function faUnderline(c, text, x, y, o = {}) {
+  const { size = 34, font = FONT.med, color = PAL.ink, pen = PAL.accents[0], seed = 3, p = 1, gap = 16 } = o;
+  c.save(); c.direction = 'rtl'; c.font = `${size}px ${font}`;
+  const w = c.measureText(text).width; c.restore();
+  fa(c, text, x, y, { size, font, color });
+  const y2 = y + size * .72, hw = w / 2 + gap;
+  brush(c, [[x + hw, y2], [x + hw * .3, y2 + 4], [x - hw * .3, y2 - 3], [x - hw, y2 + 2]], { w: size * .12, color: pen, p, seed, amp: 2.2 });
+  return w;
+}
+// numbered / bulleted hand-drawn caption
+function caption(c, text, x, y, o = {}) {
+  const { size = 32, color = PAL.ink, bg = PAL.light, box = true, seed = 7, p = 1, font = FONT.med, pad = 22, align = 'center' } = o;
+  c.save(); c.direction = 'rtl'; c.font = `${size}px ${font}`;
+  const w = c.measureText(text).width; c.restore();
+  const h = size * 1.85, x0 = x - w / 2 - pad, y0 = y - h / 2;
+  if (box && p > .02) {
+    const P = roundRectPath(x0, y0, w + pad * 2, h, 14);
+    c.save(); c.globalAlpha = .92 * Math.min(1, p * 1.4); c.fillStyle = bg; c.fill(P); c.restore();
+    brush(c, [[x0, y0 + 4], [x0 + (w + pad * 2) * .5, y0], [x0 + w + pad * 2, y0 + 3], [x0 + w + pad * 2 - 2, y0 + h - 2], [x0 + (w + pad * 2) * .4, y0 + h], [x0, y0 + h - 3]], { w: 2.6, color: alpha(PAL.ink, .55), p, seed, close: true, amp: 1.4 });
+  }
+  fa(c, text, x, y + size * .06, { size, font, color, alpha: Math.min(1, Math.max(0, (p - .25) / .5)) });
+}
+// ============================================================================
+
+// ===================== PRIMITIVES =====================
+// Every scene starts here: paper, a soft vignette and a thin drawn border.
+function paperShot(c, seed = 5, o = {}) {
+  paper(c, PAPER, null, seed);
+  const { vignette = .18, border = true } = o;
+  c.save(); resetT(c);
+  const g = c.createRadialGradient(CX, CY, H * .25, CX, CY, Math.hypot(W, H) * .58);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(70,58,40,${vignette})`);
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  if (border) { c.strokeStyle = alpha(INK, .18); c.lineWidth = 2; c.strokeRect(16, 16, W - 32, H - 32); }
+  c.restore();
+}
+// the film's name, small, in the corner, plus a drawn progress line
+function cornerMark(c, i2) {
+  const t = clamp((i2 / 12) / TOTAL, 0, 1);
+  c.save(); resetT(c); c.direction = 'rtl'; c.textAlign = 'right'; c.textBaseline = 'middle';
+  c.font = `26px ${FONT.med}`; c.fillStyle = alpha(INK, .45);
+  c.fillText('دستگاه رتیکولو اندوتلیال', W - 54, 52); c.restore();
+  c.save(); resetT(c);
+  brush(c, [[54, H - 44], [54 + (W - 108) * .5, H - 45], [W - 54, H - 44]], { w: 3, color: alpha(INK, .18), amp: 1, seed: 21 });
+  brush(c, [[54, H - 44], [54 + (W - 108) * t, H - 44.5]], { w: 5, color: alpha(RED, .75), amp: 1.2, seed: 22 });
+  c.restore();
+}
+// --- cells -------------------------------------------------------------
+function blobPath(x, y, rx, ry, seed, o = {}) { return curvePath(blob(x, y, rx, ry, seed, { amp: o.amp ?? .07, rot: o.rot ?? 0, n: o.n ?? 56 }), true); }
+function macrophagePath(x, y, s, seed, o = {}) {
+  const { squash = 1, amp = .15, lobes = 0 } = o;
+  const base = blob(x, y, s, s * squash, seed, { amp, n: 64 });
+  if (!lobes) return curvePath(base, true);
+  const r = rng(seed + 7), k = [];
+  for (let i = 0; i < lobes; i++) k.push([r() * TAU, .5 + r() * .55]);
+  return curvePath(base.map(([px, py]) => {
+    const a = Math.atan2(py - y, px - x), d = Math.hypot(px - x, py - y);
+    let m = 1; for (const [ka, kw] of k) { const dd = Math.abs(((a - ka + Math.PI * 3) % TAU) - Math.PI); m += kw * Math.exp(-Math.pow(dd / .42, 2)); }
+    return [x + Math.cos(a) * d * m, y + Math.sin(a) * d * m];
+  }), true);
+}
+// A macrophage: watercolour body, brush outline revealed around the rim, kidney nucleus.
+function macrophage(c, x, y, s, o = {}) {
+  const { seed = 11, color = VIOLET, p = 1, al = .42, nucleus = true, lobes = 3, squash = 1, ink = INK, w = 3.2, vacuoles = 0, boilSeed = 0, face = false } = o;
+  if (p <= .02) return;
+  const path = macrophagePath(x, y, s, seed, { squash, amp: .15, lobes });
+  wash(c, path, color, { al: al * Math.min(1, p * 1.2), seed: seed + 3, off: 4 });
+  const ring = blob(x, y, s, s * squash, seed, { amp: .15, n: 64 });
+  const n = ring.length, start = Math.floor(n * .5), upto = Math.max(2, Math.round(n * clamp(p, 0, 1)));
+  const arc = []; for (let k = 0; k < upto; k++) arc.push(ring[(start + k) % n]);
+  brush(c, arc, { w, color: ink, seed: seed + boilSeed, amp: 1.6 });
+  if (nucleus) {
+    const np = blobPath(x - s * .18, y + s * .08, s * .34, s * .26, seed + 5, { amp: .22 });
+    wash(c, np, PAL.accents[4], { al: .5, seed: seed + 9, off: 3 });
+    c.save(); c.strokeStyle = alpha(ink, .75); c.lineWidth = 2.2; c.stroke(np); c.restore();
+  }
+  if (vacuoles) { const r = rng(seed + 13); for (let k = 0; k < vacuoles; k++) { const a = r() * TAU, d = r() * s * .5; c.save(); c.strokeStyle = alpha(ink, .5); c.lineWidth = 1.6; c.beginPath(); c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, s * (.10 + r() * .07), 0, TAU); c.stroke(); c.restore(); } }
+  if (face) { c.save(); c.fillStyle = alpha(ink, .8); c.beginPath(); c.arc(x + s * .22, y - s * .18, 3.4, 0, TAU); c.arc(x + s * .46, y - s * .16, 3.4, 0, TAU); c.fill(); c.restore(); }
+}
+function rbc(c, x, y, s, rot = 0, o = {}) {
+  const { color = RED, p = 1, aged = 0, ink = INK, seed = 2 } = o;
+  const path = ellPath(x, y, s, s * .66, rot);
+  wash(c, path, aged ? mix(color, '#6b5a3a', aged * .8) : color, { al: .55, seed: seed + 1, off: 3 });
+  c.save(); c.globalAlpha = p; c.strokeStyle = alpha(ink, .55); c.lineWidth = 2; c.stroke(path);
+  c.beginPath(); c.ellipse(x - Math.cos(rot) * s * .18, y - Math.sin(rot) * s * .18, s * .42, s * .26, rot, 0, TAU);
+  c.fillStyle = alpha(ink, .18); c.fill(); c.restore();
+}
+function bacterium(c, x, y, s, rot = 0, o = {}) {
+  const { color = GREEN, p = 1, ink = INK, flagella = 3, seed = 4, opsonin = 0 } = o;
+  c.save(); c.translate(x, y); c.rotate(rot); c.translate(-x, -y);
+  const path = roundRectPath(x - s, y - s * .55, s * 2, s * 1.1, s * .5);
+  wash(c, path, color, { al: .5, seed: seed + 2, off: 3 });
+  c.save(); c.globalAlpha = p; c.strokeStyle = alpha(ink, .7); c.lineWidth = 2.4; c.stroke(path); c.restore();
+  for (let k = 0; k < flagella; k++) {
+    const a = (k - (flagella - 1) / 2) * .5, x0 = x - s * Math.cos(a), y0 = y - s * .5 * Math.sin(a) - s * .3;
+    brush(c, [[x0, y0], [x0 - s * .7, y0 + s * .4 * (k % 2 ? 1 : -1)], [x0 - s * 1.3, y0 + s * .15]], { w: 1.6, color: alpha(ink, .5), p, seed: seed + 20 + k, amp: 3 });
+  }
+  c.restore();
+  if (opsonin > 0) for (let k = 0; k < 3; k++) antibody(c, x + (k - 1) * s * .75, y - s * .95, s * .42, k * .3 - .3, { p: opsonin, color: GOLD, seed: 30 + k });
+}
+function virus(c, x, y, s, rot = 0, o = {}) {
+  const { color = ROSE, p = 1, ink = INK, seed = 6 } = o;
+  c.save();
+  for (let k = 0; k < 11; k++) { const a = k / 11 * TAU + rot; brush(c, [[x + Math.cos(a) * s * .95, y + Math.sin(a) * s * .95], [x + Math.cos(a) * s * 1.5, y + Math.sin(a) * s * 1.5]], { w: 2.4, color: alpha(ink, .6), p, seed: seed + k, amp: 1 }); }
+  const path = blobPath(x, y, s, s, seed, { amp: .1 });
+  wash(c, path, color, { al: .45, seed: seed + 4, off: 3 });
+  c.globalAlpha = p; c.strokeStyle = alpha(ink, .7); c.lineWidth = 2.4; c.stroke(path); c.restore();
+}
+function antibody(c, x, y, s, rot = 0, o = {}) {
+  const { p = 1, color = GOLD } = o;
+  c.save(); c.translate(x, y); c.rotate(rot);
+  brush(c, [[0, s * 1.1], [0, s * .25]], { w: s * .3, color, p, amp: 1, seed: 41 });
+  brush(c, [[0, s * .25], [-s * .75, -s * .8]], { w: s * .28, color, p, amp: 1, seed: 42 });
+  brush(c, [[0, s * .25], [s * .75, -s * .8]], { w: s * .28, color, p, amp: 1, seed: 43 });
+  c.restore();
+}
+function lysosome(c, x, y, s, o = {}) {
+  const { p = 1, seed = 8, color = GOLD, ink = INK, enzymes = 7 } = o;
+  const path = blobPath(x, y, s, s * .92, seed, { amp: .12 });
+  wash(c, path, color, { al: .4 * p, seed: seed + 2, off: 3 });
+  c.save(); c.globalAlpha = p; c.strokeStyle = alpha(ink, .65); c.lineWidth = 2.2; c.stroke(path);
+  const r = rng(seed + 3); c.fillStyle = alpha(ink, .55);
+  for (let k = 0; k < enzymes; k++) { const a = r() * TAU, d = r() * s * .55; c.beginPath(); c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 2.6, 0, TAU); c.fill(); }
+  c.restore();
+}
+function debris(c, x, y, s, seed, o = {}) {
+  const { p = 1, color = '#8b8272' } = o; const r = rng(seed);
+  c.save(); c.globalAlpha = p;
+  for (let k = 0; k < 5; k++) { const a = r() * TAU, d = r() * s; c.fillStyle = alpha(color, .55 + r() * .3); c.beginPath(); c.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, s * (.12 + r() * .18), 0, TAU); c.fill(); }
+  c.restore();
+}
+
+// a blood vessel running across the frame: two wavy walls, a faint wash inside
+function vessel(c, y, o = {}) {
+  const { amp = 34, color = RED, p = 1, seed = 12, half = 150, ink = INK } = o;
+  const top = [], bot = [];
+  for (let k = 0; k <= 24; k++) { const u = k / 24, x = -40 + u * (W + 80), yy = y + Math.sin(u * 3.1 + seed) * amp; top.push([x, yy - half]); bot.push([x, yy + half]); }
+  const path = polyPath([...top, ...bot.slice().reverse()], true);
+  c.save(); c.globalAlpha = .5; c.fillStyle = alpha(color, .12); c.fill(path); c.restore();
+  brush(c, top, { w: 3.6, color: alpha(ink, .6), p, seed: seed + 1, amp: .5, taper: 0 });
+  brush(c, bot, { w: 3.6, color: alpha(ink, .6), p, seed: seed + 2, amp: .5, taper: 0 });
+  return path;
+}
+function arrow(c, a, b, o = {}) {
+  const { p = 1, color = INK, w = 4, lift = 60, seed = 5, head = 1 } = o;
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - lift];
+  const u = clamp(p, 0, 1), cur = [[a[0], a[1]], [lerp(a[0], mid[0], u), lerp(a[1], mid[1], u)], [lerp(a[0], b[0], u), lerp(a[1], b[1], u)]];
+  brush(c, cur, { w, color, p: 1, seed, amp: 1.4 });
+  if (p > .9 && head) {
+    const tip = b, back = [lerp(mid[0], b[0], .8), lerp(mid[1], b[1], .8)];
+    const ang = Math.atan2(tip[1] - back[1], tip[0] - back[0]);
+    brush(c, [[tip[0], tip[1]], [tip[0] - Math.cos(ang - .5) * 26 * head, tip[1] - Math.sin(ang - .5) * 26 * head]], { w, color, seed: seed + 1, amp: 1 });
+    brush(c, [[tip[0], tip[1]], [tip[0] - Math.cos(ang + .5) * 26 * head, tip[1] - Math.sin(ang + .5) * 26 * head]], { w, color, seed: seed + 2, amp: 1 });
+  }
+}
+// a small hand-drawn tag with a pointer, for organ names
+function tag(c, text, x, y, o = {}) {
+  const { size = 30, color = PAL.ink, bg = PAL.light, pen = INK, seed = 9, p = 1, tail = null } = o;
+  c.save(); c.direction = 'rtl'; c.font = `${size}px ${FONT.med}`;
+  const w = c.measureText(text).width; c.restore();
+  const h = size * 1.7, x0 = x - w / 2 - 16, y0 = y - h / 2;
+  c.save(); c.globalAlpha = Math.min(1, p * 1.5); c.fillStyle = bg; c.fill(roundRectPath(x0, y0, w + 32, h, 10)); c.restore();
+  brush(c, [[x0, y0 + 3], [x0 + (w + 32) * .55, y0], [x0 + w + 32, y0 + 3], [x0 + w + 30, y0 + h - 2], [x0 + (w + 32) * .45, y0 + h], [x0, y0 + h - 3]], { w: 2.4, color: alpha(pen, .6), p, close: true, seed, amp: 1.2 });
+  if (tail) brush(c, [[x, y + (tail[1] > y ? h / 2 : -h / 2)], tail], { w: 2, color: alpha(pen, .5), p, seed: seed + 3, amp: 1 });
+  fa(c, text, x, y + size * .06, { size, color, alpha: Math.min(1, Math.max(0, (p - .3) / .4)) });
+}
+// a tick drawn by hand, for checklists
+function tick(c, x, y, s, p = 1, color = GREEN) {
+  if (p <= 0) return;
+  brush(c, [[x - s, y], [x - s * .2, y + s * .7], [x + s, y - s * .9]], { w: s * .32, color, p: clamp(p, 0, 1), seed: 61, amp: 1.2 });
+}
+function strike(c, x, y, w, p = 1, color = RED) {
+  if (p <= 0) return;
+  brush(c, [[x - w / 2, y + 4], [x, y - 6], [x + w / 2, y + 3]], { w: 6, color, p: clamp(p, 0, 1), seed: 62, amp: 2 });
+}
+// a soft pulse ring, for "here it is" moments
+function pulseRing(c, x, y, r, p, color = RED, seed = 3) {
+  if (p <= 0 || p >= 1) return;
+  c.save(); c.globalAlpha = (1 - p) * .5; c.strokeStyle = color; c.lineWidth = 4 * (1 - p) + 1;
+  c.beginPath(); c.arc(x, y, r * (.4 + p * 1.1), 0, TAU); c.stroke(); c.restore();
+}
+
+
+// --- organs: small iconic line drawings, drawn on with p -------------------
+const ORGAN = {
+  liver: { shape: [[-1, -.3], [-.72, -.66], [-.2, -.8], [.35, -.72], [.85, -.42], [1, .1], [.7, .5], [.1, .68], [-.5, .58], [-.9, .2]], inner: [[-.2, -.5], [.1, .1], [.5, .35]] },
+  spleen: { shape: [[-.85, -.45], [-.35, -.78], [.35, -.6], [.9, .05], [.62, .62], [-.05, .78], [-.62, .45]] },
+  brain: { shape: [[-1, -.1], [-.72, -.6], [-.2, -.78], [.3, -.7], [.85, -.4], [1, .1], [.7, .5], [.15, .72], [-.45, .6], [-.95, .25]], inner: [[-.45, -.35], [-.2, .15], [-.55, .45]], inner2: [[.1, -.45], [.35, .05], [.15, .45]] },
+  marrow: { shape: [[-1, -.25], [-.75, -.5], [-.3, -.42], [.3, -.42], [.75, -.5], [1, -.2], [.9, .3], [.4, .5], [-.4, .5], [-.9, .3]], inner: [[-.3, -.35], [-.1, .1], [.25, .3]] },
+  skin: { shape: [[-1, -.35], [1, -.35], [1, .35], [-1, .35]], inner: [[-1, .02], [1, .02]] },
+  gut: { shape: [[-1, -.3], [-.5, -.55], [0, -.2], [.5, -.5], [1, -.25], [.9, .3], [.4, .5], [-.1, .25], [-.6, .55], [-1, .3]] },
+};
+function organ(c, kind, x, y, s, o = {}) {
+  const { p = 1, seed = 17, color = RED, ink = INK, al = .45, label = null, dot = true, dotSeed = 3 } = o;
+  const put = arr => arr.map(([a, b]) => [x + a * s, y + b * s]);
+  const washShape = (shape, col, a2 = al) => { const path = curvePath(put(shape), true); wash(c, path, col, { al: a2, seed: seed + 2, off: 4 }); c.save(); c.strokeStyle = alpha(ink, .6); c.lineWidth = 2.6; c.stroke(path); c.restore(); };
+  if (kind === 'lung') {
+    washShape([[-.9, -.6], [-.55, -.75], [-.2, -.5], [-.15, .1], [-.35, .6], [-.75, .7], [-.95, .2]], color);
+    washShape([[.9, -.6], [.55, -.75], [.2, -.5], [.15, .1], [.35, .6], [.75, .7], [.95, .2]], color);
+    brush(c, put([[-.06, -.85], [-.04, .3]]), { w: 3, color: alpha(ink, .6), p, seed: seed + 1, amp: 1.4 });
+    brush(c, put([[-.04, .3], [-.3, .5]]), { w: 2.6, color: alpha(ink, .6), p, seed: seed + 2, amp: 1.4 });
+    brush(c, put([[-.04, .3], [.28, .5]]), { w: 2.6, color: alpha(ink, .6), p, seed: seed + 3, amp: 1.4 });
+    const rr = rng(seed + 5); for (let k = 0; k < 6; k++) { c.save(); c.globalAlpha = p * .5; c.strokeStyle = alpha(ink, .55); c.lineWidth = 1.6; c.beginPath(); c.arc(x + (rr() * 1.5 - .75) * s, y + (rr() * 1.1 - .5) * s, s * .12, 0, TAU); c.stroke(); c.restore(); }
+  } else if (kind === 'node') {
+    washShape([[-.9, -.1], [-.5, -.6], [.2, -.62], [.85, -.15], [.55, .55], [-.25, .62], [-.85, .3]], color);
+    brush(c, put([[-1.5, -.4], [-.85, -.2]]), { w: 3, color: alpha(ink, .55), p, seed: seed + 1, amp: 2 });
+    brush(c, put([[-1.5, .35], [-.8, .3]]), { w: 3, color: alpha(ink, .55), p, seed: seed + 2, amp: 2 });
+    brush(c, put([[.85, 0], [1.6, .25]]), { w: 3, color: alpha(ink, .55), p, seed: seed + 3, amp: 2 });
+  } else {
+    const spec = ORGAN[kind] || ORGAN.spleen;
+    washShape(spec.shape, color);
+    for (const k2 of ['inner', 'inner2']) if (spec[k2]) brush(c, put(spec[k2]), { w: 2.2, color: alpha(ink, .45), p, seed: seed + (k2 === 'inner' ? 4 : 5), amp: 2 });
+  }
+  if (dot) { const dp = clamp((p - .5) * 2, 0, 1); if (dp > 0) macrophage(c, x + s * .1, y - s * .05, s * .26, { seed: seed + dotSeed, color: VIOLET, p: dp, nucleus: false, lobes: 2, w: 2 }); }
+  if (label) tag(c, label, x, y + s * 1.35, { size: 26, p: clamp((p - .6) * 2.5, 0, 1), seed: seed + 8 });
+}
+
+// ===================== SCENES =====================
+const at = (tau, D) => clamp(tau / D, 0, 1);
+const span = (tau, D, a, b) => sm(a * D, b * D, tau);
+// a hand-drawn clock face; hands sweep once per `period`
+function clockFace(c, x, y, r, t, o = {}) {
+  const { color = INK, label = null } = o;
+  c.save(); c.strokeStyle = alpha(color, .7); c.lineWidth = 3; c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
+  for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; c.beginPath(); c.moveTo(x + Math.cos(a) * r * .82, y + Math.sin(a) * r * .82); c.lineTo(x + Math.cos(a) * r * .95, y + Math.sin(a) * r * .95); c.stroke(); }
+  const ha = t * TAU - Math.PI / 2, ma = t * TAU * 12 - Math.PI / 2;
+  c.lineWidth = 4; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(ha) * r * .5, y + Math.sin(ha) * r * .5); c.stroke();
+  c.lineWidth = 2.6; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(ma) * r * .78, y + Math.sin(ma) * r * .78); c.stroke(); c.restore();
+  if (label) fa(c, label, x, y + r + 26, { size: 26, color: alpha(color, .8) });
+}
+// --- 1 · the cleaning crew -------------------------------------------------
+function scene1(c, tau, i) {
+  const D = DURS.s01, u = at(tau, D);
+  paperShot(c, 11);
+  const vy = CY + 30;
+  const walls = span(tau, D, .02, .16);
+  vessel(c, vy, { p: walls, seed: 12, half: 190, color: RED });
+  if (walls > .6) for (let k = 0; k < 16; k++) {
+    const x = W + 160 - ((tau * 105 + k * 190) % (W + 420));
+    const y = vy + Math.sin(k * 2.3) * 110 + drift(tau + k, k + 4, { amp: 7, freq: .6 });
+    rbc(c, x, y, 34, .3 + Math.sin(k) * .5, { seed: k + 2, p: walls });
+  }
+  const spots = [[W * .72, vy - 70], [W * .5, vy + 80], [W * .3, vy - 40], [W * .13, vy + 70]];
+  const crew = [];
+  for (let k = 0; k < 3; k++) {
+    const uu = span(tau, D, .28 + k * .05, .66), x = W * 1.08 - uu * W * 1.2, y = vy - 90 + k * 95 + drift(tau, 40 + k, { amp: 12, freq: .5 });
+    crew.push(x);
+    macrophage(c, x, y, 78, { seed: 21 + k * 3, p: clamp(uu * 4, 0, 1), color: VIOLET, lobes: 4, vacuoles: 2, boilSeed: boil(i, 6) % 3, al: .4, face: k === 1 });
+  }
+  spots.forEach(([sx, sy], k) => { const gone = crew.some(cx => cx < sx + 40); debris(c, sx, sy, 40, 30 + k, { p: (1 - (gone ? span(tau, D, .3, .7) : 0)) * span(tau, D, .12, .24) }); });
+  const tp = span(tau, D, .66, .8);
+  if (tp > 0) {
+    c.save(); resetT(c);
+    const x = CX, y = CY - 210;
+    fa(c, 'دستگاه رتیکولو اندوتلیال', x, y, { size: 92, font: FONT.disp, color: INK, alpha: tp });
+    brush(c, [[x + 330, y + 66], [x + 60, y + 74], [x - 120, y + 62], [x - 330, y + 70]], { w: 7, color: RED, p: tp, seed: 77, amp: 2.4 });
+    fa(c, 'سیستم فاگوسیت تک‌هسته‌ای', x, y + 130, { size: 44, color: alpha(INK, .75), alpha: span(tau, D, .74, .84) });
+    c.restore();
+  }
+  if (u > .2) clockFace(c, W - 150, H - 190, 56, (tau / D) * 1.5, { label: 'شبانه‌روزی' });
+  cornerMark(c, i);
+}
+
+// --- 2 · the name, and what it really means --------------------------------
+function scene2(c, tau, i) {
+  const D = DURS.s02;
+  paperShot(c, 23);
+  const q = t => span(tau, D, t[0], t[1]);
+  // right: the old picture — a net (reticulum) beside a vessel wall
+  const wallP = q([.02, .14]);
+  brush(c, [[W * .78, 150], [W * .80, 380], [W * .77, 620], [W * .80, 860]], { w: 5, color: alpha(INK, .6), p: wallP, seed: 5, amp: .6, taper: 0 });
+  brush(c, [[W * .88, 150], [W * .90, 380], [W * .87, 620], [W * .90, 860]], { w: 5, color: alpha(INK, .6), p: wallP, seed: 6, amp: .6, taper: 0 });
+  if (wallP > .3) {
+    const net = q([.06, .20]);
+    c.save(); c.globalAlpha = net * .85; c.strokeStyle = alpha(BLUE, .8); c.lineWidth = 1.6;
+    for (let k = 0; k <= 7; k++) { const y = 190 + k * 96; c.beginPath(); c.moveTo(W * .80, y); c.quadraticCurveTo(W * .55, y + 40, W * .28, y - 10 + k * 4); c.stroke(); }
+    for (let k = 0; k <= 6; k++) { const x = W * .30 + k * 92; c.beginPath(); c.moveTo(x, 170); c.lineTo(x + 12, 880); c.stroke(); }
+    c.restore();
+    fa(c, 'رتیکولوم = تور کوچک', W * .56, 120, { size: 34, color: BLUE, alpha: net });
+    fa(c, 'کنار جدارِ رگ', W * .86, 940, { size: 32, color: alpha(INK, .75), alpha: q([.12, .24]) });
+  }
+  const oldP = q([.24, .34]), xP = q([.42, .52]);
+  fa(c, 'رتیکولو اندوتلیال', CX, CY - 250, { size: 74, font: FONT.disp, color: alpha(INK, .9), alpha: oldP });
+  if (xP > 0) {
+    strike(c, CX, CY - 250, 620, xP, RED);
+    fa(c, 'اسم قدیمی، تعریف نادقیق', CX, CY - 165, { size: 32, color: alpha(RED, .9), alpha: xP });
+  }
+  const cellP = q([.52, .70]);
+  macrophage(c, W * .27, CY + 210, 150, { seed: 31, p: cellP, color: VIOLET, lobes: 5, vacuoles: 3, boilSeed: boil(i, 5) % 3 });
+  if (cellP > .5) {
+    arrow(c, [W * .27, CY + 400], [W * .27, CY + 520], { p: q([.62, .72]), color: alpha(INK, .6), lift: 20, w: 3 });
+    fa(c, 'سلول بلعنده', W * .27, CY + 560, { size: 34, color: alpha(INK, .85), alpha: q([.66, .76]) });
+  }
+  const newP = q([.72, .86]);
+  if (newP > 0) {
+    faUnderline(c, 'سیستم فاگوسیت تک‌هسته‌ای', CX, CY - 250, { size: 62, font: FONT.disp, color: INK, pen: GREEN, p: newP, seed: 44, gap: 26 });
+    fa(c, 'اسم دقیق امروزی', CX, CY - 165, { size: 32, color: alpha(GREEN, .95), alpha: q([.82, .92]) });
+  }
+  cornerMark(c, i);
+}
+// --- 3 · the three members of the family -----------------------------------
+function cellCard(c, x, y, kind, p, tau, i) {
+  const { seed = 3, label = '', note = '' } = kind;
+  if (p <= 0) return;
+  if (kind.type === 'monocyte') {
+    macrophage(c, x, y, 96, { seed, p, color: '#8fa8c4', lobes: 0, squash: .92, boilSeed: boil(i, 5) % 3 });
+    c.save(); c.globalAlpha = p; c.strokeStyle = alpha(INK, .7); c.lineWidth = 2.4;
+    c.beginPath(); c.ellipse(x - 14, y + 8, 34, 26, .4, 0, TAU); c.stroke(); c.restore();
+  } else if (kind.type === 'tissue') {
+    macrophage(c, x, y, 100, { seed: seed + 2, p, color: VIOLET, lobes: 6, vacuoles: 2, boilSeed: boil(i, 5) % 3 });
+  } else {
+    macrophage(c, x, y, 74, { seed: seed + 4, p, color: '#c9a06a', lobes: 0, boilSeed: boil(i, 5) % 3 });
+    const r = rng(seed + 9);
+    for (let k = 0; k < 7; k++) {
+      const a = k / 7 * TAU + .4, L = 60 + r() * 60;
+      brush(c, [[x + Math.cos(a) * 60, y + Math.sin(a) * 60], [x + Math.cos(a + .3) * L, y + Math.sin(a + .3) * L], [x + Math.cos(a + .1) * (L + 40), y + Math.sin(a + .1) * (L + 40)]], { w: 3, color: alpha(INK, .6), p, seed: seed + k, amp: 2 });
+    }
+  }
+  fa(c, label, x, y + 175, { size: 38, font: FONT.bold, color: INK, alpha: p });
+  if (note) fa(c, note, x, y + 225, { size: 26, color: alpha(INK, .7), alpha: clamp((p - .5) * 2, 0, 1) });
+}
+function scene3(c, tau, i) {
+  const D = DURS.s03;
+  paperShot(c, 33);
+  const q = t => span(tau, D, t[0], t[1]);
+  faUnderline(c, 'اعضای خانواده', CX, 130, { size: 56, font: FONT.disp, color: INK, pen: RED, p: q([.02, .14]), seed: 71 });
+  cellCard(c, W * .80, CY - 40, { type: 'monocyte', seed: 51, label: 'مونوسیت', note: 'سرباز دوره‌گرد در خون' }, q([.14, .32]), tau, i);
+  cellCard(c, W * .50, CY - 40, { type: 'tissue', seed: 55, label: 'ماکروفاژ بافتی', note: 'ساکن و ماندگار در بافت' }, q([.36, .54]), tau, i);
+  cellCard(c, W * .20, CY - 40, { type: 'dendritic', seed: 59, label: 'سلول دندریتیک', note: 'نمونه را می‌برد به گره لنفاوی' }, q([.58, .76]), tau, i);
+  arrow(c, [W * .80, CY + 300], [W * .50, CY + 300], { p: q([.30, .44]), color: alpha(INK, .55), lift: -34, w: 3 });
+  fa(c, 'وارد بافت می‌شود', W * .65, CY + 375, { size: 28, color: alpha(INK, .75), alpha: q([.34, .46]) });
+  fa(c, 'همه از یک ریشه‌اند: مغز استخوان', CX, H - 150, { size: 32, color: alpha(INK, .8), alpha: q([.78, .9]) });
+  cornerMark(c, i);
+}
+
+// --- 4 · where they live ---------------------------------------------------
+function bodyOutline(c, x, y, s, p) {
+  if (p <= 0) return;
+  const head = ellPath(x, y - s * 1.02, s * .34, s * .38);
+  const torso = curvePath([[x - s * .30, y - s * .72], [x - s * .78, y - s * .45], [x - s * .70, y + s * .55], [x - s * .34, y + s * .95], [x + s * .34, y + s * .95], [x + s * .70, y + s * .55], [x + s * .78, y - s * .45], [x + s * .30, y - s * .72]], true);
+  c.save(); c.globalAlpha = p * .5; c.strokeStyle = alpha(INK, .5); c.lineWidth = 3; c.stroke(torso);
+  c.stroke(head); c.restore();
+}
+function scene4(c, tau, i) {
+  const D = DURS.s04;
+  paperShot(c, 43);
+  const q = t => span(tau, D, t[0], t[1]);
+  const bx = CX, by = CY + 60, bs = 300;
+  bodyOutline(c, bx, by, bs, q([.02, .14]));
+  const items = [
+    { kind: 'brain', x: bx, y: by - bs * 1.02, s: 96, tag: 'مغز · میکروگلیا', tx: bx + 330, ty: 190, t: [.12, .22], col: '#9a86b8' },
+    { kind: 'node', x: bx - 210, y: by - 190, s: 62, tag: 'گره‌های لنفاوی', tx: 230, ty: 300, t: [.20, .30], col: '#8fb3a6' },
+    { kind: 'lung', x: bx + 200, y: by - 190, s: 86, tag: 'ریه · ماکروفاژ آلوئولی', tx: W - 300, ty: 300, t: [.28, .38], col: '#8fb0cf' },
+    { kind: 'spleen', x: bx - 175, y: by - 20, s: 70, tag: 'طحال · پولپ قرمز', tx: 250, ty: CY + 120, t: [.38, .48], col: '#c98f8f' },
+    { kind: 'liver', x: bx + 150, y: by + 60, s: 110, tag: 'کبد · سلول‌های کوپفر', tx: W - 300, ty: CY + 140, t: [.46, .58], col: '#c9a06a' },
+    { kind: 'gut', x: bx - 120, y: by + 190, s: 74, tag: 'روده', tx: 210, ty: CY + 340, t: [.58, .66], col: '#b0a06a' },
+    { kind: 'marrow', x: bx + 210, y: by + 230, s: 74, tag: 'مغز استخوان', tx: W - 260, ty: CY + 360, t: [.66, .76], col: '#c9b0b0' },
+    { kind: 'skin', x: bx - 230, y: by + 300, s: 66, tag: 'پوست', tx: 240, ty: H - 210, t: [.76, .84], col: '#dcb59a' },
+  ];
+  for (const it of items) {
+    const p = q(it.t);
+    if (p <= 0) continue;
+    organ(c, it.kind, it.x, it.y, it.s, { p, seed: 90 + it.t[0] * 100, color: it.col, dot: true });
+    tag(c, it.tag, it.tx, it.ty, { size: 28, p: clamp((p - .35) * 1.8, 0, 1), seed: 120 + it.ty % 17, tail: null });
+    if (p > .3 && p < .75) pulseRing(c, it.x, it.y, it.s * 1.2, (p - .3) / .45, RED, 5);
+  }
+  fa(c, 'هر جا، یک نگهبانِ محلی', CX, H - 90, { size: 34, color: alpha(INK, .85), alpha: q([.86, .96]) });
+  cornerMark(c, i);
+}
+// --- 5 · phagocytosis, step by step ----------------------------------------
+function scene5(c, tau, i) {
+  const D = DURS.s05;
+  paperShot(c, 53);
+  const q = t => span(tau, D, t[0], t[1]);
+  const steps = ['۱. کموکاین: پیام شیمیایی', '۲. شناسایی و اپسونین', '۳. بلعیدن', '۴. هضم در لیزوزوم'];
+  const st = [0, .28, .5, .72];
+  const reach = q([.06, .26]);
+  const mx = W * .70 - reach * W * .06 + q([.5, .66]) * W * .03;
+  const my = CY + 30;
+  macrophage(c, mx, my, 190, { seed: 61, p: q([.02, .12]), color: VIOLET, lobes: 6, vacuoles: 0, boilSeed: boil(i, 5) % 3, al: .4 });
+  const p1 = q([.06, .24]);
+  if (p1 > 0) {
+    debris(c, W * .18, CY + 120, 46, 77, { p: p1, color: '#9a8f7d' });
+    fa(c, 'بافت آسیب‌دیده', W * .18, CY + 200, { size: 28, color: alpha(INK, .7), alpha: p1 });
+    for (let k = 0; k < 9; k++) {
+      const u = (tau * .35 + k * .11) % 1, x = lerp(W * .22, mx - 150, u), y = CY + 110 - u * 80 + drift(tau + k, k, { amp: 14, freq: .7 });
+      c.save(); c.globalAlpha = p1 * (1 - u) * .85; c.fillStyle = GOLD; c.beginPath(); c.arc(x, y, 7, 0, TAU); c.fill(); c.restore();
+    }
+    if (p1 > .5) fa(c, 'کموکاین', W * .45, CY + 40, { size: 30, color: alpha(GOLD, .95), alpha: clamp((p1 - .5) * 3, 0, 1) });
+  }
+  const bp = q([.18, .30]);
+  const eat = q([.52, .70]);
+  const bxx = lerp(W * .24, mx - 10, eat), byy = lerp(CY - 40, my - 6, eat);
+  const bsc = lerp(52, 26, eat);
+  if (bp > 0) bacterium(c, bxx, byy, bsc, -.2 + eat * 2.4, { color: GREEN, p: bp, opsonin: q([.30, .44]), seed: 8 });
+  if (q([.30, .44]) > .4) {
+    fa(c, 'اپسونین: برچسبِ «بخورید من رو»', W * .30, CY - 150, { size: 30, color: alpha(GOLD, .95), alpha: q([.34, .46]) });
+    arrow(c, [W * .30, CY - 110], [bxx, byy - 60], { p: q([.34, .46]), color: alpha(GOLD, .8), lift: -30, w: 2.6 });
+  }
+  const wrap = q([.5, .66]);
+  if (wrap > 0) {
+    c.save(); c.globalAlpha = wrap * .9; c.strokeStyle = alpha(INK, .55); c.lineWidth = 3.4;
+    const cx0 = lerp(bxx, mx, .5), cy0 = lerp(byy, my, .5), rr = lerp(120, 60, wrap);
+    c.beginPath(); c.arc(cx0, cy0, rr, -Math.PI * .1, Math.PI * 1.15); c.stroke(); c.restore();
+    fa(c, 'غشا دور هدف می‌پیچد', W * .30, CY + 330, { size: 30, color: alpha(INK, .85), alpha: clamp((wrap - .4) * 2, 0, 1) });
+  }
+  const dig = q([.70, .92]);
+  if (dig > 0) {
+    for (let k = 0; k < 3; k++) {
+      const a = k / 3 * TAU + .6, L = lerp(230, 110, clamp(dig * 1.6, 0, 1));
+      lysosome(c, mx + Math.cos(a) * L, my + Math.sin(a) * L, 46, { p: clamp(dig * 2, 0, 1), seed: 70 + k });
+    }
+    fa(c, 'لیزوزوم‌ها می‌رسند', mx - 40, my + 330, { size: 30, color: alpha(GOLD, .95), alpha: clamp((dig - .3) * 2, 0, 1) });
+    if (dig > .45) { const burst = clamp((dig - .45) * 2.5, 0, 1); for (let k = 0; k < 6; k++) debris(c, mx + (k - 3) * 22, my + (k % 2 ? 14 : -14), 26, 80 + k, { p: burst, color: '#5c7a5c' }); }
+  }
+  steps.forEach((s, k) => {
+    const p = q([st[k], st[k] + .07]);
+    if (p <= 0) return;
+    const y = 150 + k * 62;
+    fa(c, s, W - 120, y, { size: 30, color: k === steps.length - 1 ? alpha(GOLD, .95) : alpha(INK, .55 + .35 * p), align: 'right', alpha: clamp(p * 1.5, 0, 1) });
+    if (p < 1) brush(c, [[W - 100 - 380 * p, y + 26], [W - 100, y + 26]], { w: 2.4, color: alpha(RED, .5), seed: 90 + k, amp: .8 });
+  });
+  cornerMark(c, i);
+}
+
+// ===================== TIMELINE =====================
+const SCENE_ORDER = ['s01', 's02', 's03', 's04', 's05', 's06', 's07', 's08', 's09', 's10'];
+const SCENE_FNS = { s01: scene1, s02: scene2, s03: scene3, s04: scene4, s05: scene5, s06: scene6, s07: scene7, s08: scene8, s09: scene9, s10: scene10 };
+const TIMELINE = SCENE_ORDER.filter(id => (DURS[id] || 0) > 0).map(id => ({ name: id, dur: DURS[id], fn: SCENE_FNS[id] }));
+defineFilm({ palette: FILMPAL, format: { ar: '16:9', width: 1920 }, fps: 24, timeline: TIMELINE });
+// --- 6 · the recycling plant ------------------------------------------------
+function scene6(c, tau, i) {
+  const D = DURS.s06;
+  paperShot(c, 63);
+  const q = t => span(tau, D, t[0], t[1]);
+  const vy = CY - 200;
+  vessel(c, vy, { p: q([.02, .12]), seed: 18, half: 130, color: RED });
+  for (let k = 0; k < 12; k++) {
+    const x = W + 140 - ((tau * 130 + k * 210) % (W + 400));
+    rbc(c, x, vy + Math.sin(k * 1.7) * 70, 30, .2 + Math.sin(k) * .4, { seed: k + 3, p: q([.04, .14]), aged: k % 4 === 0 ? .6 : 0 });
+  }
+  // an old cell is caught by the spleen/liver phagocyte
+  const catchP = q([.14, .34]);
+  const ox = lerp(W * .78, W * .30, catchP), oy = lerp(vy + 40, vy + 190, catchP);
+  if (catchP > 0) rbc(c, ox, oy, 30 - 8 * catchP, 1.2, { seed: 44, p: 1, aged: .8 });
+  macrophage(c, W * .22, vy + 210, 110, { seed: 66, p: q([.10, .22]), color: VIOLET, lobes: 5, vacuoles: 2, boilSeed: boil(i, 5) % 3 });
+  if (q([.22, .34]) > .5) fa(c, 'گلبول پیر', ox + 40, oy - 60, { size: 28, color: alpha(INK, .8), alpha: q([.24, .34]) });
+  // the plant: haemoglobin in, iron and bilirubin out
+  const plantP = q([.34, .52]);
+  if (plantP > 0) {
+    fa(c, 'هموگلوبین', W * .58, CY + 60, { size: 32, font: FONT.bold, color: alpha(RED, .95), alpha: plantP });
+    arrow(c, [W * .58, CY + 100], [W * .58, CY + 190], { p: q([.38, .5]), color: alpha(INK, .5), lift: 10, w: 3 });
+    tag(c, 'آهن → گلبول قرمز جدید', W * .58, CY + 250, { size: 30, p: q([.44, .56]), seed: 141 });
+    tag(c, 'بیلی‌روبین → رنگدانه‌ی زرد', W * .30, CY + 250, { size: 30, p: q([.52, .64]), seed: 142 });
+    arrow(c, [W * .36, CY + 190], [W * .30, CY + 230], { p: q([.5, .6]), color: alpha(GOLD, .8), lift: 6, w: 3 });
+  }
+  const newP = q([.56, .70]);
+  if (newP > 0) rbc(c, W * .74, CY + 250, 34 * newP, .4, { seed: 71, p: 1 });
+  const jaun = q([.70, .88]);
+  if (jaun > 0) {
+    const x = W * .18, y = H - 210, s = 66;
+    c.save(); c.globalAlpha = .9; c.fillStyle = mix('#f2d7bd', '#e8c341', jaun); c.beginPath(); c.ellipse(x, y, s, s * .7, 0, 0, TAU); c.fill();
+    c.strokeStyle = alpha(INK, .5); c.lineWidth = 2.4; c.stroke(); c.restore();
+    fa(c, 'زردی', x, y + s + 44, { size: 32, font: FONT.bold, color: alpha('#a8862c', .95), alpha: jaun });
+  }
+  caption(c, 'هر ثانیه حدود دو میلیون گلبول قرمز بازنشسته می‌شود', CX, H - 96, { size: 34, p: q([.90, 1.0]), seed: 150, font: FONT.med });
+  cornerMark(c, i);
+}
+// --- 7 · the first line of defence -----------------------------------------
+function scene7(c, tau, i) {
+  const D = DURS.s07;
+  paperShot(c, 73);
+  const q = t => span(tau, D, t[0], t[1]);
+  faUnderline(c, 'خط اول دفاع', CX, 130, { size: 54, font: FONT.disp, color: INK, pen: RED, p: q([.02, .14]), seed: 81 });
+  const vy = CY - 130;
+  vessel(c, vy, { p: q([.02, .10]), seed: 28, half: 150, color: RED });
+  // invaders streaming in from the right
+  const inv = q([.06, .30]);
+  const bugs = [];
+  for (let k = 0; k < 5; k++) {
+    const u = (tau * .22 + k * .18) % 1, x = lerp(W + 120, W * .12, u), y = vy + Math.sin(k * 2 + u * 3) * 90;
+    bugs.push([x, y]);
+    bacterium(c, x, y, 30, u * 2, { color: GREEN, p: inv * (1 - clamp((u - .82) * 6, 0, 1)), seed: 12 + k });
+  }
+  // the phagocytes answer, and the vessel empties
+  const fight = q([.22, .52]);
+  for (let k = 0; k < 2; k++) {
+    const x = lerp(W * 1.05, W * (.36 + k * .26), fight), y = vy + (k ? 120 : -110);
+    macrophage(c, x, y, 96, { seed: 80 + k * 4, p: clamp(fight * 3, 0, 1), color: VIOLET, lobes: 5, vacuoles: 3, boilSeed: boil(i, 5) % 3 });
+    if (fight > .2 && fight < .8) pulseRing(c, x, y, 110, (fight - .2) / .6, RED, 6 + k);
+  }
+  // quiet clearing of the body's own dead cells
+  const apo = q([.54, .82]);
+  if (apo > 0) {
+    for (let k = 0; k < 4; k++) {
+      const u = clamp(apo * 1.6 - k * .18, 0, 1), x = lerp(W * .86, W * .16, u), y = CY + 300 + Math.sin(k * 2.1) * 60;
+      const shrink = 1 - u * .55;
+      c.save(); c.globalAlpha = .55 * (1 - u * .5); c.fillStyle = '#d8cfc0'; c.strokeStyle = alpha(INK, .5); c.lineWidth = 2;
+      c.beginPath(); c.arc(x, y, 26 * shrink, 0, TAU); c.fill(); c.stroke();
+      c.beginPath(); c.arc(x - 4, y - 2, 9 * shrink, 0, TAU); c.fillStyle = alpha(INK, .25); c.fill(); c.restore();
+    }
+    fa(c, 'آپوپتوز: سلول‌های خودی، بی‌صدا جمع می‌شوند', CX, CY + 470, { size: 32, color: alpha(INK, .85), alpha: q([.62, .76]) });
+    arrow(c, [W * .70, CY + 380], [W * .34, CY + 340], { p: q([.68, .80]), color: alpha(INK, .5), lift: -40, w: 3 });
+  }
+  caption(c, 'بدون این‌ها، بافت مرده التهاب می‌سازد', CX, H - 96, { size: 34, p: q([.86, .96]), seed: 160 });
+  cornerMark(c, i);
+}
+// --- 8 · the bridge to adaptive immunity -----------------------------------
+function scene8(c, tau, i) {
+
+  const D = DURS.s08;
+  paperShot(c, 83);
+  const q = t => span(tau, D, t[0], t[1]);
+  faUnderline(c, 'پل به ایمنی اختصاصی', CX, 130, { size: 54, font: FONT.disp, color: INK, pen: BLUE, p: q([.02, .14]), seed: 91 });
+  const mx = W * .78, my = CY - 60;
+  macrophage(c, mx, my, 130, { seed: 101, p: q([.02, .12]), color: VIOLET, lobes: 5, vacuoles: 2, boilSeed: boil(i, 5) % 3 });
+  // the antigen held up on the surface
+  const agP = q([.10, .20]);
+  if (agP > 0) {
+    c.save(); c.globalAlpha = agP; c.fillStyle = RED; c.beginPath();
+    c.moveTo(mx - 40, my - 150); c.lineTo(mx + 40, my - 150); c.lineTo(mx, my - 100); c.closePath(); c.fill();
+    c.strokeStyle = alpha(INK, .7); c.lineWidth = 2; c.stroke(); c.restore();
+    fa(c, 'آنتی‌ژن', mx + 130, my - 130, { size: 30, color: alpha(RED, .95), alpha: agP });
+  }
+  // the dendritic cell carries it along the lymph to the node
+  const travel = q([.20, .54]);
+  const dx = lerp(W * .62, W * .24, travel), dy = lerp(CY - 20, CY + 40, travel);
+  if (travel > 0) {
+    if (travel < 1) brush(c, [[W * .64, CY - 40], [W * .50, CY + 40], [W * .36, CY + 60], [W * .26, CY + 70]], { w: 4, color: alpha(BLUE, .45), p: clamp(travel * 2, 0, 1), seed: 30, amp: 2 });
+    macrophage(c, dx, dy, 62, { seed: 105, p: clamp(travel * 6, 0, 1), color: '#c9a06a', lobes: 0, boilSeed: boil(i, 5) % 3 });
+    for (let k = 0; k < 6; k++) { const a = k / 6 * TAU + .3; brush(c, [[dx + Math.cos(a) * 46, dy + Math.sin(a) * 46], [dx + Math.cos(a + .2) * 84, dy + Math.sin(a + .2) * 84]], { w: 3, color: alpha(INK, .55), p: clamp(travel * 6, 0, 1), seed: 110 + k, amp: 2 }); }
+    if (travel > .15) fa(c, 'مسیر لنف', W * .45, CY + 130, { size: 28, color: alpha(BLUE, .9), alpha: clamp((travel - .15) * 4, 0, 1) });
+    c.save(); c.globalAlpha = clamp(travel * 1.4, 0, 1); c.fillStyle = RED;
+    c.beginPath(); c.moveTo(dx - 18, dy - 66); c.lineTo(dx + 18, dy - 66); c.lineTo(dx, dy - 36); c.closePath(); c.fill(); c.restore();
+  }
+  // inside the node: lymphocytes learn
+  const teach = q([.52, .78]);
+  if (teach > 0) {
+    const nx = W * .20, ny = CY + 60;
+    c.save(); c.globalAlpha = teach; c.strokeStyle = alpha(INK, .55); c.lineWidth = 3;
+    c.beginPath(); c.ellipse(nx, ny, 190, 150, 0, 0, TAU); c.stroke(); c.restore();
+    fa(c, 'گره لنفاوی', nx, ny - 190, { size: 30, color: alpha(INK, .8), alpha: teach });
+    for (let k = 0; k < 5; k++) {
+      const a = k / 5 * TAU + .5, x = nx + Math.cos(a) * 105, y = ny + Math.sin(a) * 80;
+      const grow = clamp((teach - .1 - k * .06) * 3, 0, 1);
+      c.save(); c.globalAlpha = grow; c.fillStyle = alpha(BLUE, .35); c.strokeStyle = alpha(INK, .6); c.lineWidth = 2.2;
+      c.beginPath(); c.arc(x, y, 30, 0, TAU); c.fill(); c.stroke();
+      c.beginPath(); c.arc(x - 6, y - 4, 12, 0, TAU); c.fillStyle = alpha(INK, .3); c.fill(); c.restore();
+    }
+    if (teach > .5) { fa(c, 'لنفوسیت‌ها یاد می‌گیرند', nx, ny + 200, { size: 30, color: alpha(INK, .85), alpha: clamp((teach - .5) * 3, 0, 1) }); }
+    const abP = clamp((teach - .55) * 2.4, 0, 1);
+    for (let k = 0; k < 4; k++) antibody(c, nx + 250 + k * 70, ny - 60 + k * 60, 26, .3 * k, { p: abP, color: GOLD });
+    if (abP > .2) fa(c, 'آنتی‌بادی اختصاصی', nx + 350, ny + 210, { size: 28, color: alpha(GOLD, .95), alpha: abP });
+  }
+  caption(c, 'بدون این پل، واکسن و حافظه‌ی ایمنی معنی نداشت', CX, H - 96, { size: 34, p: q([.84, .96]), seed: 170 });
+  cornerMark(c, i);
+}
+
+
+
+// --- 9 · in the clinic -----------------------------------------------------
+function syringe(c, x, y, s, p, rot = 0) {
+  if (p <= 0) return;
+  c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = clamp(p * 1.4, 0, 1);
+  c.strokeStyle = alpha(INK, .7); c.lineWidth = 3;
+  c.beginPath(); c.roundRect(-s * .9, -s * .28, s * 1.5, s * .56, 6); c.stroke();
+  c.beginPath(); c.moveTo(s * .6, 0); c.lineTo(s * 1.5, 0); c.stroke();
+  c.beginPath(); c.moveTo(-s * .9, 0); c.lineTo(-s * 1.3, 0); c.moveTo(-s * 1.3, -s * .3); c.lineTo(-s * 1.3, s * .3); c.stroke();
+  c.fillStyle = alpha(GOLD, .5); c.fillRect(-s * .85, -s * .22, s * .8, s * .44);
+  c.restore();
+}
+function scene9(c, tau, i) {
+  const D = DURS.s09;
+  paperShot(c, 93);
+  const q = t => span(tau, D, t[0], t[1]);
+  faUnderline(c, 'نکته‌های بالینی', CX, 120, { size: 54, font: FONT.disp, color: INK, pen: VIOLET, p: q([.02, .12]), seed: 95 });
+  const rP = q([.10, .26]);
+  if (rP > 0) {
+    organ(c, 'spleen', W * .78, CY - 60, 90, { p: rP, seed: 200, color: '#c98f8f', dot: false });
+    fa(c, 'طحال: فیلترِ خون', W * .78, CY + 60, { size: 30, color: alpha(INK, .85), alpha: rP });
+    for (let k = 0; k < 5; k++) {
+      const u = (tau * .3 + k * .2) % 1, x = lerp(W * .60, W * .72, u), y = CY - 200 + k * 40;
+      rbc(c, x, y, 22, .3, { seed: 210 + k, p: clamp(rP * 1.5, 0, 1), aged: k === 4 ? .8 : 0 });
+    }
+  }
+  const smP = q([.26, .44]);
+  if (smP > 0) {
+    c.save(); c.globalAlpha = smP * .8; c.strokeStyle = alpha(INK, .45); c.lineWidth = 2.4;
+    c.beginPath(); c.ellipse(W * .78, CY + 250, 250, 110, 0, 0, TAU); c.stroke(); c.restore();
+    for (let k = 0; k < 5; k++) {
+      const x = W * .78 + (k - 2) * 95, y = CY + 250 + Math.sin(k * 2) * 30;
+      rbc(c, x, y, 34, .2 + k * .2, { seed: 220 + k, p: smP });
+      if (k === 1 || k === 3) { c.save(); c.globalAlpha = smP; c.fillStyle = alpha(VIOLET, .95); c.beginPath(); c.arc(x + 6, y + 2, 6.5, 0, TAU); c.fill(); c.restore(); }
+    }
+    fa(c, 'اجسام هولجولی', W * .78, CY + 400, { size: 30, color: alpha(VIOLET, .95), alpha: smP });
+    arrow(c, [W * .78, CY + 350], [W * .78 + 60, CY + 285], { p: clamp((smP - .4) * 2, 0, 1), color: alpha(VIOLET, .8), lift: 12, w: 2.6 });
+  }
+  const vacP = q([.44, .58]);
+  if (vacP > 0) {
+    syringe(c, W * .78, CY + 560, 60, vacP, -.25);
+    tick(c, W * .60, CY + 560, 22, clamp((vacP - .3) * 3, 0, 1));
+    fa(c, 'واکسن قبل از طحال‌برداری', W * .66, CY + 560, { size: 28, color: alpha(GREEN, .95), alpha: clamp((vacP - .3) * 3, 0, 1) });
+  }
+  fa(c, 'وقتی زیادی فعال می‌شود', W * .26, CY - 330, { size: 32, font: FONT.bold, color: alpha(RED, .9), alpha: q([.58, .70]) });
+  const lp = q([.58, .86]);
+  if (lp > 0) {
+    organ(c, 'liver', W * .34, CY - 130, 80, { p: clamp(lp * 2, 0, 1), seed: 230, color: '#c9a06a', dot: true });
+    for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + .8; c.save(); c.globalAlpha = clamp((lp - .1) * 2, 0, 1) * .8; c.fillStyle = alpha(GOLD, .85); c.beginPath(); c.arc(W * .34 + Math.cos(a) * 46, CY - 130 + Math.sin(a) * 34, 11, 0, TAU); c.fill(); c.restore(); }
+    fa(c, 'کبد چرب', W * .34, CY - 20, { size: 28, color: alpha(INK, .8), alpha: clamp((lp - .15) * 2.5, 0, 1) });
+    const ax = W * .26, ay = CY + 150;
+    brush(c, [[ax - 200, ay - 46], [ax, ay - 52], [ax + 200, ay - 46]], { w: 5, color: alpha(INK, .55), p: clamp((lp - .3) * 3, 0, 1), seed: 240, amp: 1, taper: 0 });
+    brush(c, [[ax - 200, ay + 46], [ax, ay + 52], [ax + 200, ay + 46]], { w: 5, color: alpha(INK, .55), p: clamp((lp - .3) * 3, 0, 1), seed: 241, amp: 1, taper: 0 });
+    const plP = clamp((lp - .4) * 2.6, 0, 1);
+    if (plP > 0) { const path = blobPath(ax + 30, ay - 30, 60 * plP, 34 * plP, 245, { amp: .18 }); wash(c, path, GOLD, { al: .55, seed: 246, off: 3 }); c.save(); c.globalAlpha = plP; c.strokeStyle = alpha(INK, .6); c.lineWidth = 2.4; c.stroke(path); c.restore(); }
+    fa(c, 'تصلب شرایین', W * .26, CY + 250, { size: 28, color: alpha(INK, .8), alpha: plP });
+    const tuP = clamp((lp - .55) * 2.4, 0, 1);
+    if (tuP > 0) {
+      const tx = W * .12, ty = CY - 120, path = blobPath(tx, ty, 90 * tuP, 74 * tuP, 250, { amp: .22 });
+      wash(c, path, ROSE, { al: .5, seed: 251, off: 3 }); c.save(); c.globalAlpha = tuP; c.strokeStyle = alpha(INK, .6); c.lineWidth = 2.6; c.stroke(path); c.restore();
+      for (let k = 0; k < 3; k++) { const a = k / 3 * TAU + .4; macrophage(c, tx + Math.cos(a) * 34, ty + Math.sin(a) * 26, 22, { seed: 255 + k, p: tuP, color: VIOLET, nucleus: false, lobes: 3, w: 1.8 }); }
+      fa(c, 'تومور', tx, ty + 120, { size: 28, color: alpha(INK, .8), alpha: tuP });
+    }
+  }
+  cornerMark(c, i);
+}
+
+// --- 10 · the wrap-up ------------------------------------------------------
+function scene10(c, tau, i) {
+  const D = DURS.s10;
+  paperShot(c, 103);
+  const q = t => span(tau, D, t[0], t[1]);
+  faUnderline(c, 'جمع‌بندی', CX, 130, { size: 54, font: FONT.disp, color: INK, pen: GREEN, p: q([.02, .12]), seed: 99 });
+  const cards = [
+    { x: W * .80, label: 'پاک‌سازی', note: 'زباله و سلول مرده', t: [.10, .26] },
+    { x: W * .50, label: 'بازیافت', note: 'آهن و مواد باارزش', t: [.24, .40] },
+    { x: W * .20, label: 'آموزش ایمنی', note: 'آنتی‌ژن به لنفوسیت', t: [.38, .54] },
+  ];
+  for (const cd of cards) {
+    const p = q(cd.t);
+    if (p <= 0) continue;
+    const y = CY - 90;
+    c.save(); c.globalAlpha = Math.min(1, p * 1.4); c.fillStyle = alpha(PAL.light, .9);
+    c.fill(roundRectPath(cd.x - 210, y - 190, 420, 380, 18)); c.restore();
+    brush(c, [[cd.x - 210, y - 190], [cd.x, y - 196], [cd.x + 210, y - 188], [cd.x + 212, y + 186], [cd.x, y + 192], [cd.x - 212, y + 188]], { w: 3, color: alpha(INK, .5), p, close: true, seed: 260 + cd.x % 13, amp: 1.4 });
+    if (cd.label === 'پاک‌سازی') { for (let k = 0; k < 3; k++) debris(c, cd.x - 40 + k * 40, y - 40 + (k % 2) * 20, 30, 270 + k, { p }); macrophage(c, cd.x + 60, y - 20, 60, { seed: 274, p, color: VIOLET, lobes: 4, w: 2.6 }); }
+    else if (cd.label === 'بازیافت') { rbc(c, cd.x - 60, y - 40, 34, .3, { seed: 275, p }); arrow(c, [cd.x - 10, y - 40], [cd.x + 60, y - 40], { p, color: alpha(INK, .5), lift: -20, w: 2.6 }); rbc(c, cd.x + 110, y - 40, 34, .3, { seed: 276, p }); }
+    else { macrophage(c, cd.x - 70, y - 30, 54, { seed: 277, p, color: '#c9a06a', lobes: 0, w: 2.6 }); for (let k = 0; k < 3; k++) { c.save(); c.globalAlpha = p; c.fillStyle = alpha(BLUE, .4); c.strokeStyle = alpha(INK, .6); c.lineWidth = 2; c.beginPath(); c.arc(cd.x + 60 + k * 44, y - 30 + Math.sin(k * 2) * 24, 22, 0, TAU); c.fill(); c.stroke(); c.restore(); } }
+    fa(c, cd.label, cd.x, y + 120, { size: 36, font: FONT.bold, color: INK, alpha: p });
+    fa(c, cd.note, cd.x, y + 168, { size: 26, color: alpha(INK, .75), alpha: clamp((p - .4) * 2, 0, 1) });
+  }
+  const tips = ['خواب کافی', 'تحرک روزانه', 'تغذیه‌ی درست'];
+  tips.forEach((t, k) => {
+    const p = q([.56 + k * .05, .66 + k * .05]);
+    if (p <= 0) return;
+    const y = CY + 175 + k * 62;
+    fa(c, t, W * .40, y, { size: 34, color: alpha(INK, .9), alpha: p, align: 'right' });
+    tick(c, W * .22, y, 20, clamp((p - .4) * 3, 0, 1));
+    fa(c, 'برای سالم ماندن همین کارکن‌ها', W * .40, CY + 175 - 62, { size: 28, color: alpha(INK, .6), alpha: p, align: 'right' });
+  });
+  const endP = q([.80, .96]);
+  if (endP > 0) {
+    fa(c, 'ممنون که تا آخر دیدی', CX, CY + 400, { size: 62, font: FONT.disp, color: INK, alpha: endP });
+    brush(c, [[CX + 340, CY + 460], [CX + 80, CY + 470], [CX - 140, CY + 456], [CX - 340, CY + 466]], { w: 6, color: RED, p: endP, seed: 280, amp: 2 });
+  }
+  cornerMark(c, i);
+}
+</script>
+</html>

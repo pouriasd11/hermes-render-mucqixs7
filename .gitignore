@@ -37,3 +37,14 @@ npm-debug.log*
 
 # Local upstream clone used during template development.
 .hermes-upstream/
+
+# --- film build artefacts (large) ---
+film/node_modules/
+film/out/seg/
+film/out/narration.wav
+film/out/*-frames/
+tmp/
+tools/
+debs/
+chromelibs/
+res-skill/
